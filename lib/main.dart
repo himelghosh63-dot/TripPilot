@@ -175,31 +175,40 @@ Future<void> selectReturnDate() async {
   }
 }
 
+
 Widget buildRating(String placeName) {
   final rating = userRatings[placeName] ?? 0;
 
   return Row(
+    mainAxisSize: MainAxisSize.min,
     children: [
       const Text('Rate: '),
+
       ...List.generate(5, (index) {
-        return IconButton(
-          onPressed: () {
+        return GestureDetector(
+          onTap: () {
             setState(() {
               userRatings[placeName] = index + 1;
             });
           },
-          icon: Icon(
-            Icons.star,
-            color: index < rating
-                ? Colors.amber
-                : Colors.grey,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Icon(
+              Icons.star,
+              size: 28,
+              color: index < rating
+                  ? Colors.amber
+                  : Colors.grey,
+            ),
           ),
         );
       }),
+
       Text('$rating/5'),
     ],
   );
 }
+
 
   Future<void> logout() async {
     final shouldLogout = await showDialog<bool>(
