@@ -12,3 +12,19 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+/backend/serviceAccountKey.json
+
+# Node.js dependencies
+node_modules/
+backend/node_modules/
+
+# Firebase Admin private credentials
+backend/serviceAccountKey.json
+backend/*firebase-adminsdk*.json
+
+# Firebase Android configuration (temporarily excluded)
+android/app/google-services.json
+
+# Environment and secret files
+.env
+.env.*
