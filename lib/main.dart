@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? returnDate;
 
   Map<String, int> userRatings = {};
+  Timer? searchDebounce;
 
   @override
   void initState() {
@@ -79,62 +81,73 @@ class _HomeScreenState extends State<HomeScreen> {
     fetchPlaces();
   }
 
-  Future<void> fetchPlaces({int page = 1}) async {
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
+ 
+Future<void> fetchPlaces({int page = 1}) async {
+  setState(() {
+    isLoading = true;
+    errorMessage = null;
+  });
 
-    try {
-      final uri = Uri.parse(apiUrl).replace(
-        queryParameters: {
-          'page': page.toString(),
-          'limit': '2',
-        },
-      );
+  try {
+    final uri = Uri.parse(apiUrl).replace(
+      queryParameters: {
+        'page': page.toString(),
+        'limit': '5',
 
-      final response = await http.get(uri);
+        if (selectedDistrict != 'All Districts')
+          'district': selectedDistrict,
 
-      if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
+        if (selectedCategory != 'All Categories')
+          'category': selectedCategory,
 
-        if (result['success'] != true) {
-          throw Exception('API request was unsuccessful.');
-        }
+        if (searchController.text.trim().isNotEmpty)
+          'search': searchController.text.trim(),
+      },
+    );
 
-        final List<dynamic> data = result['data'];
+    final response = await http.get(uri);
 
-        if (!mounted) return;
+    if (response.statusCode == 200) {
+      final result = jsonDecode(response.body);
 
-        setState(() {
-          places = data
-              .map((item) => Map<String, dynamic>.from(item))
-              .toList();
-
-          currentPage = result['page'];
-          totalPages = result['totalPages'];
-          totalPlaces = result['totalPlaces'];
-        });
-      } else {
-        throw Exception(
-          'Server returned status ${response.statusCode}',
-        );
+      if (result['success'] != true) {
+        throw Exception('API request was unsuccessful.');
       }
-    } catch (e) {
+
+      final List<dynamic> data = result['data'];
+
       if (!mounted) return;
 
       setState(() {
-        errorMessage =
-            'Could not load places. Check your API server.';
+        places = data
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+
+        currentPage = result['page'];
+        totalPages = result['totalPages'];
+        totalPlaces = result['totalPlaces'];
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+    } else {
+      throw Exception(
+        'Server returned status ${response.statusCode}',
+      );
+    }
+  } catch (e) {
+    if (!mounted) return;
+
+    setState(() {
+      errorMessage =
+          'Could not load places. Check your API server.';
+    });
+  } finally {
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
+}
+
 
   Future<void> selectDepartureDate() async {
   final pickedDate = await showDatePicker(
@@ -250,35 +263,17 @@ Widget buildRating(String placeName) {
     );
   }
 
-  @override
-  void dispose() {
-    searchController.dispose();
-    super.dispose();
-  }
+ @override
+void dispose() {
+  searchDebounce?.cancel();
+  searchController.dispose();
+  super.dispose();
+}
 
   @override
   Widget build(BuildContext context) {
-    final query =
-        searchController.text.toLowerCase().trim();
-
-    final filteredPlaces = places.where((place) {
-      final matchesName = place['name']
-          .toString()
-          .toLowerCase()
-          .contains(query);
-
-      final matchesDistrict =
-          selectedDistrict == 'All Districts' ||
-          place['district'] == selectedDistrict;
-
-      final matchesCategory =
-          selectedCategory == 'All Categories' ||
-          place['category'] == selectedCategory;
-
-      return matchesName &&
-          matchesDistrict &&
-          matchesCategory;
-    }).toList();
+    
+    final filteredPlaces = places;
 
     return Scaffold(
       appBar: AppBar(
@@ -386,7 +381,16 @@ const SizedBox(height: 22),
 
           TextField(
             controller: searchController,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) {
+  searchDebounce?.cancel();
+
+  searchDebounce = Timer(
+    const Duration(milliseconds: 500),
+    () {
+      fetchPlaces(page: 1);
+    },
+  );
+},
             decoration: InputDecoration(
               hintText: 'Search tourist spots...',
               prefixIcon: const Icon(Icons.search),
@@ -405,22 +409,34 @@ const SizedBox(height: 22),
               border: OutlineInputBorder(),
             ),
             items: [
-              'All Districts',
-              'Chattogram',
-              'Cox’s Bazar',
-              'Rangamati',
-              'Bandarban',
-            ].map((district) {
-              return DropdownMenuItem(
-                value: district,
-                child: Text(district),
-              );
-            }).toList(),
+  'All Districts',
+  'Chattogram',
+  "Cox's Bazar",
+  'Rangamati',
+  'Bandarban',
+  'Khagrachhari',
+  'Feni',
+  'Noakhali',
+  'Lakshmipur',
+  'Cumilla',
+  'Chandpur',
+  'Brahmanbaria',
+].map((district) {
+  return DropdownMenuItem(
+    value: district,
+    child: Text(district),
+  );
+}).toList(),
+          
             onChanged: (value) {
-              setState(() {
-                selectedDistrict = value!;
-              });
-            },
+  if (value == null) return;
+
+  setState(() {
+    selectedDistrict = value;
+  });
+
+  fetchPlaces(page: 1);
+},
           ),
 
           const SizedBox(height: 12),
@@ -431,28 +447,39 @@ const SizedBox(height: 22),
               labelText: 'Select Category',
               border: OutlineInputBorder(),
             ),
-            items: [
-              'All Categories',
-              'Beach',
-              'Lake',
-              'Hill',
-            ].map((category) {
-              return DropdownMenuItem(
-                value: category,
-                child: Text(category),
-              );
-            }).toList(),
+           items: [
+  'All Categories',
+  'Beach',
+  'Lake',
+  'Hill',
+  'Park',
+  'Waterfall',
+  'Historical',
+  'Island',
+  'Landmark',
+  'Cave',
+  'River',
+].map((category) {
+  return DropdownMenuItem(
+    value: category,
+    child: Text(category),
+  );
+}).toList(),
             onChanged: (value) {
-              setState(() {
-                selectedCategory = value!;
-              });
-            },
+  if (value == null) return;
+
+  setState(() {
+    selectedCategory = value;
+  });
+
+  fetchPlaces(page: 1);
+},
           ),
 
           const SizedBox(height: 24),
 
           Text(
-            'Tourist Spots (${filteredPlaces.length})',
+            'Tourist Spots ($totalPlaces)',
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
