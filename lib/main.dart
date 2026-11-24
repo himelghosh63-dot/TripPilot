@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
+import 'place_details_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -519,12 +520,45 @@ const SizedBox(height: 22),
               ),
             )
           else
-            ...filteredPlaces.map((place) {
-              return Card(
-                margin: const EdgeInsets.only(
-                  bottom: 10,
-                ),
-                child: ListTile(
+  ...filteredPlaces.asMap().entries.map((entry) {
+    final index = entry.key;
+    final place = entry.value;
+
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('${place['id']}_$currentPage'),
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 1200 + (index * 300)),
+      curve: Curves.easeInOut,
+      
+builder: (context, value, child) {
+  return Opacity(
+    opacity: value,
+    child: Transform.translate(
+      offset: Offset(0, 100 * (1 - value)),
+      child: Transform.scale(
+        scale: 0.85 + (0.15 * value),
+        child: child,
+      ),
+    ),
+  );
+},
+
+      child: Card(
+        margin: const EdgeInsets.only(
+          bottom: 10,
+        ),
+        child: ListTile(
+          onTap: () {
+            debugPrint('TOURIST CARD CLICKED');
+    Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => PlaceDetailsScreen(
+        place: place,
+      ),
+    ),
+  );
+},
                   leading: CircleAvatar(
                     backgroundColor: Colors.teal.shade50,
                     child: const Icon(
@@ -551,12 +585,13 @@ const SizedBox(height: 22),
     buildRating(place['name'].toString()),
   ],
 ),
-                  trailing: const Icon(
+                              trailing: const Icon(
                     Icons.chevron_right,
                   ),
                 ),
-              );
-            }),
+              ),
+            );
+          }),     
 
           const SizedBox(height: 16),
 
